@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2D Airplane Simulation</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            text-align: center;
+            height: 100vh;
+            background-color: #87CEEB; /* Sky blue background */
+            margin: 0;
+        }
+        canvas {
+            border: 2px solid black;
+            background-color: #87CEEB;
+        }
+    </style>
+</head>
+<body>
+    <h1>2D Airplane Simulation</h1>
+    <canvas id="canvas" width="800" height="600"></canvas>
+    <div>
+        <h2>Control Panel</h2>
+        <h3>Fly with the arrow keys or use the sliders below</h3>
+        <div>
+            <label>Knots: <span id="knotsLabel">50</span></label> <!-- Display speed here -->
+            <input
+                type="range"
+                min="0.5"
+                max="5"
+                step="0.1"
+                value="0.5"
+                id="speedSlider"
+                oninput="updateSpeedLabel(this.value)"
+                onmouseup="applySpeedChange(this.value)"
+            />
+        </div>
+        <div>
+            <label>Yaw Angle: <span id="angleLabel">0°</span></label> <!-- Display angle here -->
+            <input
+                type="range"
+                min="0"
+                max="360"
+                step="1"
+                value="0"
+                id="angleSlider"
+                oninput="updateAngleLabel(this.value)"
+                onmouseup="applyAngleChange(this.value)"
+            />
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const angleLabel = document.getElementById('angleLabel');
+        const knotsLabel = document.getElementById('knotsLabel');
+        const speedSlider = document.getElementById('speedSlider');
+        const angleSlider = document.getElementById('angleSlider');
+
+        // Airplane state
+        const airplane = {
+            x: canvas.width / 2,
+            y: canvas.height / 2,
+            size: 5,
+            angle: -Math.PI / 2, // offset so 0 degrees is north, degrees in radians
+            speed: 0.5, // knots in hundredths of a knot, 1 speed === 100 knots
+            maxSpeed: 5
+        };
+
+        // Keys object to track which keys are currently pressed
+        const keysPressed = {};
+
+        // Update the airplane's position based on its angle and speed
+        function updateAirplanePosition() {
+            airplane.x += airplane.speed * Math.cos(airplane.angle);
+            airplane.y += airplane.speed * Math.sin(airplane.angle);
+
+            // Ensure airplane stays within canvas bounds
+            if (airplane.x > canvas.width) airplane.x = 0;
+            if (airplane.x < 0) airplane.x = canvas.width;
+            if (airplane.y > canvas.height) airplane.y = 0;
+            if (airplane.y < 0) airplane.y = canvas.height;
+        }
+
+        // Draw the airplane
+        function drawAirplane() {
+            ctx.save();
+
+            ctx.translate(airplane.x, airplane.y);
+            ctx.rotate(airplane.angle);
+
+            ctx.clearRect(airplane.size, -airplane.size, 10, airplane.size * 2)
+
+            // draw trailing line
+            ctx.beginPath();
+            ctx.moveTo(airplane.size, 0);
+            ctx.lineTo(airplane.size, -airplane.size);
+            ctx.lineTo(-airplane.size, -airplane.size);
+            ctx.lineTo(-airplane.size, airplane.size);
+            ctx.lineTo(airplane.size, airplane.size);
+            ctx.closePath();
+            ctx.fillStyle = 'red';
+            ctx.fill();
+
+            // add triangular tip
+            ctx.beginPath();
+            ctx.moveTo(airplane.size, 0);
+            ctx.lineTo(airplane.size + 10, 0);
+            ctx.lineTo(airplane.size, -airplane.size + 2);
+            ctx.lineTo(airplane.size, airplane.size - 2);
+            ctx.lineTo(airplane.size + 10, 0);
+            ctx.closePath();
+            ctx.fillStyle = 'black';
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        // Label update functions called on slider input
+        function updateAngleLabel(value) {
+            angleLabel.innerText = `${value}°`;
+        }
+
+        function updateSpeedLabel(value) {
+            knotsLabel.innerText = parseFloat(value * 100).toFixed(0);
+        }
+
+        // Apply airplane changes on slider mouse release
+        function applyAngleChange(value) {
+            // offset by (-Math.PI / 2) so 0 radians is north instead of east
+            const angleInRadians = (value * Math.PI) / 180 - Math.PI / 2;
+            airplane.angle = angleInRadians;
+        }
+
+        function applySpeedChange(value) {
+            airplane.speed = parseFloat(value);
+        }
+
+        // Update angle and speed based on active keys
+        function handleMovement() {
+            const angleChange = Math.PI / 36; // 5 degrees
+            if (keysPressed['ArrowUp'] && airplane.speed < airplane.maxSpeed) {
+                airplane.speed += 0.05;
+                speedSlider.value = airplane.speed.toFixed(1); // Sync slider
+                knotsLabel.innerText = (100 * airplane.speed).toFixed(0); // Sync label
+            }
+            if (keysPressed['ArrowDown'] && airplane.speed > 0.5) {
+                airplane.speed -= 0.05;
+                speedSlider.value = airplane.speed.toFixed(1);
+                knotsLabel.innerText = (100 * airplane.speed).toFixed(0);
+            }
+            if (keysPressed['ArrowLeft']) {
+                airplane.angle -= angleChange;
+                syncAngleSlider();
+            }
+            if (keysPressed['ArrowRight']) {
+                airplane.angle += angleChange;
+                syncAngleSlider();
+            }
+        }
+
+        // Sync angle label and slider with the airplane's current angle
+        function syncAngleSlider() {
+            /* Shift the angle right by 90 degrees (π/2 radians) for display
+             to account for the fact we shifted 0 radians to point north instead of east */
+            let angleInDegrees = ((airplane.angle + Math.PI / 2) * 180) / Math.PI % 360;
+            if (angleInDegrees < 0) angleInDegrees += 360; // Convert negative angles to positive
+            angleSlider.value = angleInDegrees.toFixed(0);
+            angleLabel.innerText = `${angleInDegrees.toFixed(0)}°`;
+        }
+
+        // Event listeners to update keysPressed object on keydown and keyup
+        window.addEventListener('keydown', (event) => {
+            keysPressed[event.key] = true;
+        });
+
+        window.addEventListener('keyup', (event) => {
+            keysPressed[event.key] = false;
+        });
+
+        // Main game loop
+        function gameLoop() {
+            // ctx.clearRect(0, 0, canvas.width, canvas.height); // include this line to prevent rendering trailing path
+            handleMovement(); // Update movement based on active keys
+            updateAirplanePosition();
+            drawAirplane();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Start the game loop
+        gameLoop();
+    </script>
+</body>
+</html>
